@@ -240,7 +240,7 @@ def get_stockstats_indicator(
         print(
             f"Error getting stockstats indicator data for indicator {indicator} on {curr_date}: {e}"
         )
-        return ""
+        return f"ERROR: {str(e)}"
 
     return str(indicator_value)
 

@@ -95,10 +95,158 @@ class TradingAgentsGraph:
             base_url=self.config.get("backend_url"),
             **llm_kwargs,
         )
-
         self.deep_thinking_llm = deep_client.get_llm()
         self.quick_thinking_llm = quick_client.get_llm()
         
+        # Add fallback models for Google Gemini if rate limited or quota exhausted
+        if self.config["llm_provider"] == "google":
+            # Models to try in order when hit by rate limit or quota errors
+            quick_backups = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-3.1-flash-lite-preview", "gemini-2.5-pro"]
+            quick_fallbacks = []
+            for m in quick_backups:
+                if m != self.config["quick_think_llm"]:
+                    try:
+                        client = create_llm_client(
+                            provider="google",
+                            model=m,
+                            base_url=self.config.get("backend_url"),
+                            **llm_kwargs,
+                        )
+                        quick_fallbacks.append(client.get_llm())
+                    except Exception as err:
+                        logger.warning(f"Could not load fallback model {m} for quick thinking: {err}")
+            
+            # Cross-provider fallbacks: try OpenAI if key is set
+            if os.environ.get("OPENAI_API_KEY"):
+                try:
+                    client = create_llm_client(
+                        provider="openai",
+                        model="gpt-4o-mini",
+                    )
+                    quick_fallbacks.append(client.get_llm())
+                except Exception as err:
+                    logger.warning(f"Could not load OpenAI fallback for quick thinking: {err}")
+            
+            # Cross-provider fallbacks: try Anthropic if key is set
+            if os.environ.get("ANTHROPIC_API_KEY"):
+                try:
+                    client = create_llm_client(
+                        provider="anthropic",
+                        model="claude-3-5-haiku-20241022",
+                    )
+                    quick_fallbacks.append(client.get_llm())
+                except Exception as err:
+                    logger.warning(f"Could not load Anthropic fallback for quick thinking: {err}")
+
+            # Cross-provider fallbacks: try Qwen (DashScope) if key is set
+            if os.environ.get("DASHSCOPE_API_KEY"):
+                try:
+                    client = create_llm_client(
+                        provider="qwen",
+                        model="qwen-plus",
+                    )
+                    quick_fallbacks.append(client.get_llm())
+                except Exception as err:
+                    logger.warning(f"Could not load Qwen fallback for quick thinking: {err}")
+
+            # Cross-provider fallbacks: try DeepSeek if key is set
+            if os.environ.get("DEEPSEEK_API_KEY"):
+                try:
+                    client = create_llm_client(
+                        provider="deepseek",
+                        model="deepseek-chat",
+                    )
+                    quick_fallbacks.append(client.get_llm())
+                except Exception as err:
+                    logger.warning(f"Could not load DeepSeek fallback for quick thinking: {err}")
+
+            # Cross-provider fallbacks: try xAI if key is set
+            if os.environ.get("XAI_API_KEY"):
+                try:
+                    client = create_llm_client(
+                        provider="xai",
+                        model="grok-beta",
+                    )
+                    quick_fallbacks.append(client.get_llm())
+                except Exception as err:
+                    logger.warning(f"Could not load xAI fallback for quick thinking: {err}")
+
+            if quick_fallbacks:
+                self.quick_thinking_llm = self.quick_thinking_llm.with_fallbacks(quick_fallbacks)
+
+            deep_backups = ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-3.1-pro-preview"]
+            deep_fallbacks = []
+            for m in deep_backups:
+                if m != self.config["deep_think_llm"]:
+                    try:
+                        client = create_llm_client(
+                            provider="google",
+                            model=m,
+                            base_url=self.config.get("backend_url"),
+                            **llm_kwargs,
+                        )
+                        deep_fallbacks.append(client.get_llm())
+                    except Exception as err:
+                        logger.warning(f"Could not load fallback model {m} for deep thinking: {err}")
+
+            # Cross-provider fallbacks: try OpenAI if key is set
+            if os.environ.get("OPENAI_API_KEY"):
+                try:
+                    client = create_llm_client(
+                        provider="openai",
+                        model="gpt-4o",
+                    )
+                    deep_fallbacks.append(client.get_llm())
+                except Exception as err:
+                    logger.warning(f"Could not load OpenAI fallback for deep thinking: {err}")
+            
+            # Cross-provider fallbacks: try Anthropic if key is set
+            if os.environ.get("ANTHROPIC_API_KEY"):
+                try:
+                    client = create_llm_client(
+                        provider="anthropic",
+                        model="claude-3-5-sonnet-20241022",
+                    )
+                    deep_fallbacks.append(client.get_llm())
+                except Exception as err:
+                    logger.warning(f"Could not load Anthropic fallback for deep thinking: {err}")
+
+            # Cross-provider fallbacks: try Qwen (DashScope) if key is set
+            if os.environ.get("DASHSCOPE_API_KEY"):
+                try:
+                    client = create_llm_client(
+                        provider="qwen",
+                        model="qwen-plus",
+                    )
+                    deep_fallbacks.append(client.get_llm())
+                except Exception as err:
+                    logger.warning(f"Could not load Qwen fallback for deep thinking: {err}")
+
+            # Cross-provider fallbacks: try DeepSeek if key is set
+            if os.environ.get("DEEPSEEK_API_KEY"):
+                try:
+                    client = create_llm_client(
+                        provider="deepseek",
+                        model="deepseek-chat",
+                    )
+                    deep_fallbacks.append(client.get_llm())
+                except Exception as err:
+                    logger.warning(f"Could not load DeepSeek fallback for deep thinking: {err}")
+
+            # Cross-provider fallbacks: try xAI if key is set
+            if os.environ.get("XAI_API_KEY"):
+                try:
+                    client = create_llm_client(
+                        provider="xai",
+                        model="grok-beta",
+                    )
+                    deep_fallbacks.append(client.get_llm())
+                except Exception as err:
+                    logger.warning(f"Could not load xAI fallback for deep thinking: {err}")
+
+            if deep_fallbacks:
+                self.deep_thinking_llm = self.deep_thinking_llm.with_fallbacks(deep_fallbacks)
+
         self.memory_log = TradingMemoryLog(self.config)
 
         # Create tool nodes
@@ -139,6 +287,7 @@ class TradingAgentsGraph:
             thinking_level = self.config.get("google_thinking_level")
             if thinking_level:
                 kwargs["thinking_level"] = thinking_level
+            kwargs["max_retries"] = 0
 
         elif provider == "openai":
             reasoning_effort = self.config.get("openai_reasoning_effort")

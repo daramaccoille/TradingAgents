@@ -637,93 +637,104 @@ def get_analysis_date():
 
 
 def save_report_to_disk(final_state, ticker: str, save_path: Path):
-    """Save complete analysis report to disk with organized subfolders."""
+    """Save complete analysis report to disk with organized subfolders (market & decision)."""
     save_path.mkdir(parents=True, exist_ok=True)
     sections = []
 
-    # 1. Analysts
-    analysts_dir = save_path / "1_analysts"
+    # Create market and decision subdirectories
+    market_dir = save_path / "market"
+    decision_dir = save_path / "decision"
+
+    # Save analyst market reports
     analyst_parts = []
     if final_state.get("market_report"):
-        analysts_dir.mkdir(exist_ok=True)
-        (analysts_dir / "market.md").write_text(final_state["market_report"], encoding="utf-8")
+        market_dir.mkdir(exist_ok=True)
+        (market_dir / "market.md").write_text(final_state["market_report"], encoding="utf-8")
         analyst_parts.append(("Market Analyst", final_state["market_report"]))
     if final_state.get("sentiment_report"):
-        analysts_dir.mkdir(exist_ok=True)
-        (analysts_dir / "sentiment.md").write_text(final_state["sentiment_report"], encoding="utf-8")
+        market_dir.mkdir(exist_ok=True)
+        (market_dir / "sentiment.md").write_text(final_state["sentiment_report"], encoding="utf-8")
         analyst_parts.append(("Social Analyst", final_state["sentiment_report"]))
     if final_state.get("news_report"):
-        analysts_dir.mkdir(exist_ok=True)
-        (analysts_dir / "news.md").write_text(final_state["news_report"], encoding="utf-8")
+        market_dir.mkdir(exist_ok=True)
+        (market_dir / "news.md").write_text(final_state["news_report"], encoding="utf-8")
         analyst_parts.append(("News Analyst", final_state["news_report"]))
     if final_state.get("fundamentals_report"):
-        analysts_dir.mkdir(exist_ok=True)
-        (analysts_dir / "fundamentals.md").write_text(final_state["fundamentals_report"], encoding="utf-8")
+        market_dir.mkdir(exist_ok=True)
+        (market_dir / "fundamentals.md").write_text(final_state["fundamentals_report"], encoding="utf-8")
         analyst_parts.append(("Fundamentals Analyst", final_state["fundamentals_report"]))
     if analyst_parts:
         content = "\n\n".join(f"### {name}\n{text}" for name, text in analyst_parts)
         sections.append(f"## I. Analyst Team Reports\n\n{content}")
 
-    # 2. Research
-    if final_state.get("investment_debate_state"):
-        research_dir = save_path / "2_research"
-        debate = final_state["investment_debate_state"]
-        research_parts = []
+    # Save decisions and debate history
+    debate = final_state.get("investment_debate_state", {})
+    risk = final_state.get("risk_debate_state", {})
+    
+    # Check if we have anything to write to decision directory
+    has_decision_data = (
+        final_state.get("trader_investment_plan") or 
+        final_state.get("investment_plan") or 
+        final_state.get("final_trade_decision") or 
+        risk.get("judge_decision") or 
+        debate.get("judge_decision")
+    )
+    
+    if has_decision_data:
+        decision_dir.mkdir(exist_ok=True)
+        
+        # Save individual files in decision dir
+        if final_state.get("final_trade_decision"):
+            (decision_dir / "decision.md").write_text(final_state["final_trade_decision"], encoding="utf-8")
+        elif risk.get("judge_decision"):
+            (decision_dir / "decision.md").write_text(risk["judge_decision"], encoding="utf-8")
+            
+        if final_state.get("trader_investment_plan"):
+            (decision_dir / "trader_plan.md").write_text(final_state["trader_investment_plan"], encoding="utf-8")
+            sections.append(f"## II. Trading Team Plan\n\n### Trader\n{final_state['trader_investment_plan']}")
+            
+        if final_state.get("investment_plan"):
+            (decision_dir / "investment_plan.md").write_text(final_state["investment_plan"], encoding="utf-8")
+            sections.append(f"## III. Research Team Decision\n\n{final_state['investment_plan']}")
+            
+        # Debate history
         if debate.get("bull_history"):
-            research_dir.mkdir(exist_ok=True)
-            (research_dir / "bull.md").write_text(debate["bull_history"], encoding="utf-8")
-            research_parts.append(("Bull Researcher", debate["bull_history"]))
+            (decision_dir / "bull.md").write_text(debate["bull_history"], encoding="utf-8")
         if debate.get("bear_history"):
-            research_dir.mkdir(exist_ok=True)
-            (research_dir / "bear.md").write_text(debate["bear_history"], encoding="utf-8")
-            research_parts.append(("Bear Researcher", debate["bear_history"]))
+            (decision_dir / "bear.md").write_text(debate["bear_history"], encoding="utf-8")
         if debate.get("judge_decision"):
-            research_dir.mkdir(exist_ok=True)
-            (research_dir / "manager.md").write_text(debate["judge_decision"], encoding="utf-8")
-            research_parts.append(("Research Manager", debate["judge_decision"]))
-        if research_parts:
-            content = "\n\n".join(f"### {name}\n{text}" for name, text in research_parts)
-            sections.append(f"## II. Research Team Decision\n\n{content}")
-
-    # 3. Trading
-    if final_state.get("trader_investment_plan"):
-        trading_dir = save_path / "3_trading"
-        trading_dir.mkdir(exist_ok=True)
-        (trading_dir / "trader.md").write_text(final_state["trader_investment_plan"], encoding="utf-8")
-        sections.append(f"## III. Trading Team Plan\n\n### Trader\n{final_state['trader_investment_plan']}")
-
-    # 4. Risk Management
-    if final_state.get("risk_debate_state"):
-        risk_dir = save_path / "4_risk"
-        risk = final_state["risk_debate_state"]
-        risk_parts = []
+            (decision_dir / "manager.md").write_text(debate["judge_decision"], encoding="utf-8")
+            
+        # Risk history
         if risk.get("aggressive_history"):
-            risk_dir.mkdir(exist_ok=True)
-            (risk_dir / "aggressive.md").write_text(risk["aggressive_history"], encoding="utf-8")
-            risk_parts.append(("Aggressive Analyst", risk["aggressive_history"]))
+            (decision_dir / "aggressive.md").write_text(risk["aggressive_history"], encoding="utf-8")
         if risk.get("conservative_history"):
-            risk_dir.mkdir(exist_ok=True)
-            (risk_dir / "conservative.md").write_text(risk["conservative_history"], encoding="utf-8")
-            risk_parts.append(("Conservative Analyst", risk["conservative_history"]))
+            (decision_dir / "conservative.md").write_text(risk["conservative_history"], encoding="utf-8")
         if risk.get("neutral_history"):
-            risk_dir.mkdir(exist_ok=True)
-            (risk_dir / "neutral.md").write_text(risk["neutral_history"], encoding="utf-8")
-            risk_parts.append(("Neutral Analyst", risk["neutral_history"]))
-        if risk_parts:
-            content = "\n\n".join(f"### {name}\n{text}" for name, text in risk_parts)
-            sections.append(f"## IV. Risk Management Team Decision\n\n{content}")
+            (decision_dir / "neutral.md").write_text(risk["neutral_history"], encoding="utf-8")
 
-        # 5. Portfolio Manager
-        if risk.get("judge_decision"):
-            portfolio_dir = save_path / "5_portfolio"
-            portfolio_dir.mkdir(exist_ok=True)
-            (portfolio_dir / "decision.md").write_text(risk["judge_decision"], encoding="utf-8")
-            sections.append(f"## V. Portfolio Manager Decision\n\n### Portfolio Manager\n{risk['judge_decision']}")
-
-    # Write consolidated report
+    # Write consolidated markdown report
     header = f"# Trading Analysis Report: {ticker}\n\nGenerated: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
     (save_path / "complete_report.md").write_text(header + "\n\n".join(sections), encoding="utf-8")
-    return save_path / "complete_report.md"
+    
+    # Generate HTML report with ApexCharts and MetalDetector branding
+    try:
+        from cli.html_reporter import generate_html_report
+        # Try to infer target date from save_path name, else use today
+        try:
+            folder_name = save_path.name
+            date_part = folder_name.split("_")[-2] # e.g. GOLD_20260603_185905 -> 20260603
+            analysis_date = datetime.datetime.strptime(date_part, "%Y%m%d").strftime("%Y-%m-%d")
+        except Exception:
+            analysis_date = datetime.datetime.now().strftime("%Y-%m-%d")
+            
+        report_file = generate_html_report(ticker, final_state, save_path, analysis_date)
+        return report_file
+    except Exception as e:
+        print(f"Error generating HTML report: {e}")
+        import traceback
+        traceback.print_exc()
+        return save_path / "complete_report.md"
 
 
 def display_complete_report(final_state):

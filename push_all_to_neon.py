@@ -7,7 +7,7 @@ import time
 
 load_dotenv()
 
-API_URL = "http://localhost:3000/api/reports/ingest"
+API_URL = os.environ.get("INGEST_API_URL", "http://localhost:3000/api/reports/ingest")
 API_KEY = os.environ.get("INGEST_API_KEY", "dev-secret-key")
 
 def push_all_reports():

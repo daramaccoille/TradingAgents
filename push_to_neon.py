@@ -8,8 +8,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Config
-# For local testing, use localhost. In production, change to: https://metaldetectors.online/api/reports/ingest
-API_URL = "http://localhost:3000/api/reports/ingest"
+API_URL = os.environ.get("INGEST_API_URL", "http://localhost:3000/api/reports/ingest")
 API_KEY = os.environ.get("INGEST_API_KEY", "dev-secret-key")
 REPORTS_DIR = Path("reports")
 

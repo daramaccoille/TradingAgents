@@ -4,6 +4,7 @@ from tradingagents.agents.utils.agent_utils import (
     get_indicators,
     get_language_instruction,
     get_stock_data,
+    bind_tools_safe,
 )
 from tradingagents.dataflows.config import get_config
 
@@ -71,7 +72,7 @@ Volume-Based Indicators:
         prompt = prompt.partial(current_date=current_date)
         prompt = prompt.partial(instrument_context=instrument_context)
 
-        chain = prompt | llm.bind_tools(tools)
+        chain = prompt | bind_tools_safe(llm, tools)
 
         result = chain.invoke(state["messages"])
 

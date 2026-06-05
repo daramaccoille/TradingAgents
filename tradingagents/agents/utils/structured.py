@@ -34,6 +34,25 @@ def bind_structured(llm: Any, schema: type[T], agent_name: str) -> Optional[Any]
     Logs a warning when the binding fails so the user understands the agent
     will use free-text generation for every call instead of one-shot fallback.
     """
+    if hasattr(llm, "fallbacks") and hasattr(llm, "runnable"):
+        try:
+            primary = llm.runnable.with_structured_output(schema)
+            fallbacks = []
+            for fb in llm.fallbacks:
+                try:
+                    fallbacks.append(fb.with_structured_output(schema))
+                except (NotImplementedError, AttributeError):
+                    pass
+            if not fallbacks:
+                return primary
+            return primary.with_fallbacks(fallbacks, exceptions_to_handle=getattr(llm, "exceptions_to_handle", (Exception,)))
+        except (NotImplementedError, AttributeError) as exc:
+            logger.warning(
+                "%s: provider does not support with_structured_output (%s); "
+                "falling back to free-text generation",
+                agent_name, exc,
+            )
+            return None
     try:
         return llm.with_structured_output(schema)
     except (NotImplementedError, AttributeError) as exc:

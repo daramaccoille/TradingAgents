@@ -1,4 +1,5 @@
 from langchain_core.messages import HumanMessage, RemoveMessage
+from typing import Any
 
 # Import tools from separate utility files
 from tradingagents.agents.utils.core_stock_tools import (
@@ -56,6 +57,19 @@ def create_msg_delete():
         return {"messages": removal_operations + [placeholder]}
 
     return delete_messages
+
+
+def bind_tools_safe(llm: Any, tools: list) -> Any:
+    """Bind tools to an LLM, supporting RunnableWithFallbacks correctly."""
+    if hasattr(llm, "fallbacks") and hasattr(llm, "runnable"):
+        # Bind tools to the primary LLM
+        primary = llm.runnable.bind_tools(tools)
+        # Bind tools to each fallback LLM
+        fallbacks = [fb.bind_tools(tools) for fb in llm.fallbacks]
+        # Re-wrap in RunnableWithFallbacks
+        return primary.with_fallbacks(fallbacks, exceptions_to_handle=getattr(llm, "exceptions_to_handle", (Exception,)))
+    return llm.bind_tools(tools)
+
 
 
         

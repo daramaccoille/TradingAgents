@@ -132,6 +132,14 @@ class TraderProposal(BaseModel):
         default=None,
         description="Optional stop-loss price in the instrument's quote currency.",
     )
+    take_profit: Optional[float] = Field(
+        default=None,
+        description="Optional take-profit price in the instrument's quote currency.",
+    )
+    risk_reward_ratio: Optional[str] = Field(
+        default=None,
+        description="Optional risk-to-reward ratio, e.g., '1:2.0'.",
+    )
     position_sizing: Optional[str] = Field(
         default=None,
         description="Optional sizing guidance, e.g. '5% of portfolio'.",
@@ -154,6 +162,10 @@ def render_trader_proposal(proposal: TraderProposal) -> str:
         parts.extend(["", f"**Entry Price**: {proposal.entry_price}"])
     if proposal.stop_loss is not None:
         parts.extend(["", f"**Stop Loss**: {proposal.stop_loss}"])
+    if proposal.take_profit is not None:
+        parts.extend(["", f"**Take Profit**: {proposal.take_profit}"])
+    if proposal.risk_reward_ratio:
+        parts.extend(["", f"**Risk Reward Ratio**: {proposal.risk_reward_ratio}"])
     if proposal.position_sizing:
         parts.extend(["", f"**Position Sizing**: {proposal.position_sizing}"])
     parts.extend([
@@ -204,6 +216,22 @@ class PortfolioDecision(BaseModel):
         default=None,
         description="Optional recommended holding period, e.g. '3-6 months'.",
     )
+    entry_price: Optional[float] = Field(
+        default=None,
+        description="Optional entry price or zone target in the instrument's quote currency.",
+    )
+    stop_loss: Optional[float] = Field(
+        default=None,
+        description="Optional stop-loss price in the instrument's quote currency.",
+    )
+    take_profit: Optional[float] = Field(
+        default=None,
+        description="Optional take-profit price in the instrument's quote currency.",
+    )
+    risk_reward_ratio: Optional[str] = Field(
+        default=None,
+        description="Optional risk-to-reward ratio, e.g., '1:2.0'.",
+    )
 
 
 def render_pm_decision(decision: PortfolioDecision) -> str:
@@ -225,4 +253,12 @@ def render_pm_decision(decision: PortfolioDecision) -> str:
         parts.extend(["", f"**Price Target**: {decision.price_target}"])
     if decision.time_horizon:
         parts.extend(["", f"**Time Horizon**: {decision.time_horizon}"])
+    if decision.entry_price is not None:
+        parts.extend(["", f"**Entry Price**: {decision.entry_price}"])
+    if decision.stop_loss is not None:
+        parts.extend(["", f"**Stop Loss**: {decision.stop_loss}"])
+    if decision.take_profit is not None:
+        parts.extend(["", f"**Take Profit**: {decision.take_profit}"])
+    if decision.risk_reward_ratio:
+        parts.extend(["", f"**Risk Reward Ratio**: {decision.risk_reward_ratio}"])
     return "\n".join(parts)

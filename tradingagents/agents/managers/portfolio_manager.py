@@ -61,6 +61,14 @@ def create_portfolio_manager(llm):
 
 ---
 
+**Trading Levels Instructions**:
+If the final rating is anything other than 'Hold' (e.g., 'Buy', 'Overweight', 'Underweight', 'Sell'), you MUST evaluate the proposed trading levels in the Trader's transaction proposal, validate or adjust them, and populate:
+1. `entry_price`: The final validated entry price or boundary.
+2. `stop_loss`: The final validated stop-loss level.
+3. `take_profit`: The final validated take-profit target price.
+4. `risk_reward_ratio`: The final validated risk-to-reward ratio (e.g., '1:2.0').
+If the rating is 'Hold', you may leave these fields null or set `entry_price` as the current market close price for reference.
+
 Be decisive and ground every conclusion in specific evidence from the analysts.{get_language_instruction()}"""
 
         final_trade_decision = invoke_structured_or_freetext(

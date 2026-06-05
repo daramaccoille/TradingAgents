@@ -141,11 +141,12 @@ class TradingAgentsGraph:
             # Cross-provider fallbacks: try Qwen (DashScope) if key is set
             if os.environ.get("DASHSCOPE_API_KEY"):
                 try:
-                    client = create_llm_client(
-                        provider="qwen",
-                        model="qwen-plus",
-                    )
-                    quick_fallbacks.append(client.get_llm())
+                    for model_name in ["qwen-plus", "qwen-turbo"]:
+                        client = create_llm_client(
+                            provider="qwen",
+                            model=model_name,
+                        )
+                        quick_fallbacks.append(client.get_llm())
                 except Exception as err:
                     logger.warning(f"Could not load Qwen fallback for quick thinking: {err}")
 
@@ -171,8 +172,18 @@ class TradingAgentsGraph:
                 except Exception as err:
                     logger.warning(f"Could not load xAI fallback for quick thinking: {err}")
 
+            # Local fallback: try local Ollama model if running
+            try:
+                client = create_llm_client(
+                    provider="ollama",
+                    model="qwen2.5",
+                )
+                quick_fallbacks.append(client.get_llm())
+            except Exception as err:
+                logger.warning(f"Could not load Ollama fallback for quick thinking: {err}")
+
             if quick_fallbacks:
-                self.quick_thinking_llm = self.quick_thinking_llm.with_fallbacks(quick_fallbacks)
+                self.quick_thinking_llm = self.quick_thinking_llm.with_fallbacks(quick_fallbacks, exceptions_to_handle=(Exception,))
 
             deep_backups = ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-3.1-pro-preview"]
             deep_fallbacks = []
@@ -214,11 +225,12 @@ class TradingAgentsGraph:
             # Cross-provider fallbacks: try Qwen (DashScope) if key is set
             if os.environ.get("DASHSCOPE_API_KEY"):
                 try:
-                    client = create_llm_client(
-                        provider="qwen",
-                        model="qwen-plus",
-                    )
-                    deep_fallbacks.append(client.get_llm())
+                    for model_name in ["qwen-plus", "qwen-turbo"]:
+                        client = create_llm_client(
+                            provider="qwen",
+                            model=model_name,
+                        )
+                        deep_fallbacks.append(client.get_llm())
                 except Exception as err:
                     logger.warning(f"Could not load Qwen fallback for deep thinking: {err}")
 
@@ -244,8 +256,18 @@ class TradingAgentsGraph:
                 except Exception as err:
                     logger.warning(f"Could not load xAI fallback for deep thinking: {err}")
 
+            # Local fallback: try local Ollama model if running
+            try:
+                client = create_llm_client(
+                    provider="ollama",
+                    model="qwen2.5",
+                )
+                deep_fallbacks.append(client.get_llm())
+            except Exception as err:
+                logger.warning(f"Could not load Ollama fallback for deep thinking: {err}")
+
             if deep_fallbacks:
-                self.deep_thinking_llm = self.deep_thinking_llm.with_fallbacks(deep_fallbacks)
+                self.deep_thinking_llm = self.deep_thinking_llm.with_fallbacks(deep_fallbacks, exceptions_to_handle=(Exception,))
 
         self.memory_log = TradingMemoryLog(self.config)
 

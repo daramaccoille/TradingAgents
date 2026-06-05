@@ -28,7 +28,13 @@ def create_trader(llm):
                 "content": (
                     "You are a trading agent analyzing market data to make investment decisions. "
                     "Based on your analysis, provide a specific recommendation to buy, sell, or hold. "
-                    "Anchor your reasoning in the analysts' reports and the research plan."
+                    "Anchor your reasoning in the analysts' reports and the research plan.\n\n"
+                    "If the action is 'Buy' or 'Sell', you MUST calculate and provide concrete day trading levels:\n"
+                    "1. Entry Price: A precise level or entry boundary based on current support/resistance or moving average levels.\n"
+                    "2. Stop Loss (SL): A logical protection level (e.g., using 1.5 * ATR or a recent swing low/high to manage downside risk).\n"
+                    "3. Take Profit (TP): A logical target price based on key chart resistance/support or recent price targets.\n"
+                    "4. Risk Reward Ratio: The calculated ratio of risk to potential reward (e.g., '1:2.0' or '1:1.5'). Ensure the reward justifies the risk (prefer R:R of at least 1:1.5).\n"
+                    "If the action is 'Hold', you may leave these fields null or set the entry price as the current market price for reference."
                 ),
             },
             {

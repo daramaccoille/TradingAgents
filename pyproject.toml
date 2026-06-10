@@ -7,7 +7,7 @@ name = "tradingagents"
 version = "0.2.4"
 description = "TradingAgents: Multi-Agents LLM Financial Trading Framework"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "langchain-core>=0.3.81",
     "backtrader>=1.9.78.123",
@@ -35,6 +35,7 @@ dependencies = [
     "metatrader5>=5.0.5735",
     "fastmcp>=3.4.2",
     "pytest>=9.0.3",
+    "mcp-metatrader5-server",
 ]
 
 [project.scripts]
@@ -57,3 +58,6 @@ markers = [
 filterwarnings = [
     "ignore::DeprecationWarning",
 ]
+
+[tool.uv.sources]
+mcp-metatrader5-server = { path = "../mcp-metatrader5-server", editable = true }

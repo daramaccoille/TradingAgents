@@ -64,11 +64,30 @@ def main():
     yesterday = datetime.datetime.now() - datetime.timedelta(days=1)
     target_date = yesterday.strftime("%Y-%m-%d")
     
+    # Load already completed tickers for target_date to support resumption
+    completed_tickers = set()
+    if prices_csv_path.exists():
+        try:
+            with open(prices_csv_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    parts = line.strip().split(",")
+                    if len(parts) >= 4:
+                        date_val = parts[1].replace('"', '')
+                        ticker_val = parts[3].replace('"', '')
+                        if date_val == target_date:
+                            completed_tickers.add(ticker_val)
+        except Exception as e:
+            print(f"Error reading completed tickers: {e}")
+
     print("="*60)
     print(f"STARTING DAILY REPORT RUN FOR DATE: {target_date}")
     print("="*60)
     
     for metal, ticker in METALS.items():
+        if ticker in completed_tickers:
+            print(f"Skipping {metal} ({ticker}) as it is already completed for {target_date}.")
+            continue
+            
         run_timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         start_time = time.time()
         

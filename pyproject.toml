@@ -32,6 +32,9 @@ dependencies = [
     "yfinance>=0.2.63",
     "python-dotenv>=1.0.0",
     "mcp>=1.27.2",
+    "metatrader5>=5.0.5735",
+    "fastmcp>=3.4.2",
+    "pytest>=9.0.3",
 ]
 
 [project.scripts]

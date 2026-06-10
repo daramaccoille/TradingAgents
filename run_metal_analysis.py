@@ -12,9 +12,9 @@ def run_analysis_for_ticker(ticker: str, target_date: str = None):
     """Run multi-agent trading analysis for a specific ticker and save results to disk."""
     # Setup config to use Google LLM (since GOOGLE_API_KEY is configured in .env)
     config = DEFAULT_CONFIG.copy()
-    config["llm_provider"] = "google"
-    config["deep_think_llm"] = "gemini-2.5-flash"   # Standard, stable model
-    config["quick_think_llm"] = "gemini-2.5-flash"
+    config["llm_provider"] = "ollama"
+    config["deep_think_llm"] = "qwen2.5:0.5b"   # Use local CPU-friendly model
+    config["quick_think_llm"] = "qwen2.5:0.5b"
     config["max_debate_rounds"] = 1
     config["max_risk_discuss_rounds"] = 1
 

@@ -1,3 +1,4 @@
+import json
 from .alpha_vantage_common import _make_api_request
 
 def get_indicator(
@@ -149,54 +150,96 @@ def get_indicator(
         else:
             return f"Error: Indicator {indicator} not implemented yet."
 
-        # Parse CSV data and extract values for the date range
-        lines = data.strip().split('\n')
-        if len(lines) < 2:
-            return f"Error: No data returned for {indicator}"
-
-        # Parse header and data
-        header = [col.strip() for col in lines[0].split(',')]
-        try:
-            date_col_idx = header.index('time')
-        except ValueError:
-            return f"Error: 'time' column not found in data for {indicator}. Available columns: {header}"
-
-        # Map internal indicator names to expected CSV column names from Alpha Vantage
-        col_name_map = {
-            "macd": "MACD", "macds": "MACD_Signal", "macdh": "MACD_Hist",
-            "boll": "Real Middle Band", "boll_ub": "Real Upper Band", "boll_lb": "Real Lower Band",
-            "rsi": "RSI", "atr": "ATR", "close_10_ema": "EMA",
-            "close_50_sma": "SMA", "close_200_sma": "SMA"
-        }
-
-        target_col_name = col_name_map.get(indicator)
-
-        if not target_col_name:
-            # Default to the second column if no specific mapping exists
-            value_col_idx = 1
-        else:
+        # If data is a string containing JSON, parse it to a dictionary
+        if isinstance(data, str):
             try:
-                value_col_idx = header.index(target_col_name)
-            except ValueError:
-                return f"Error: Column '{target_col_name}' not found for indicator '{indicator}'. Available columns: {header}"
+                parsed = json.loads(data)
+                if isinstance(parsed, dict):
+                    data = parsed
+            except json.JSONDecodeError:
+                pass
 
         result_data = []
-        for line in lines[1:]:
-            if not line.strip():
-                continue
-            values = line.split(',')
-            if len(values) > value_col_idx:
-                try:
-                    date_str = values[date_col_idx].strip()
-                    # Parse the date
-                    date_dt = datetime.strptime(date_str, "%Y-%m-%d")
 
-                    # Check if date is in our range
+        if isinstance(data, dict):
+            if "Error Message" in data:
+                return f"Error from Alpha Vantage API: {data['Error Message']}"
+            if "Information" in data:
+                return f"Information from Alpha Vantage API: {data['Information']}"
+            if "Note" in data:
+                return f"Note from Alpha Vantage API: {data['Note']}"
+
+            tech_key = next((k for k in data.keys() if k.startswith("Technical Analysis:")), None)
+            if not tech_key:
+                return f"Error: Unexpected JSON response from Alpha Vantage API: {data}"
+
+            col_name_map = {
+                "macd": "MACD", "macds": "MACD_Signal", "macdh": "MACD_Hist",
+                "boll": "Real Middle Band", "boll_ub": "Real Upper Band", "boll_lb": "Real Lower Band",
+                "rsi": "RSI", "atr": "ATR", "close_10_ema": "EMA",
+                "close_50_sma": "SMA", "close_200_sma": "SMA"
+            }
+            target_col_name = col_name_map.get(indicator)
+
+            for date_str, values in data[tech_key].items():
+                try:
+                    date_dt = datetime.strptime(date_str, "%Y-%m-%d")
                     if before <= date_dt <= curr_date_dt:
-                        value = values[value_col_idx].strip()
+                        if target_col_name and target_col_name in values:
+                            value = values[target_col_name]
+                        else:
+                            value = list(values.values())[0]
                         result_data.append((date_dt, value))
-                except (ValueError, IndexError):
+                except (ValueError, TypeError, IndexError):
                     continue
+        else:
+            # Parse CSV data and extract values for the date range
+            lines = data.strip().split('\n')
+            if len(lines) < 2:
+                return f"Error: No data returned for {indicator}"
+
+            # Parse header and data
+            header = [col.strip() for col in lines[0].split(',')]
+            try:
+                date_col_idx = header.index('time')
+            except ValueError:
+                return f"Error: 'time' column not found in data for {indicator}. Available columns: {header}"
+
+            # Map internal indicator names to expected CSV column names from Alpha Vantage
+            col_name_map = {
+                "macd": "MACD", "macds": "MACD_Signal", "macdh": "MACD_Hist",
+                "boll": "Real Middle Band", "boll_ub": "Real Upper Band", "boll_lb": "Real Lower Band",
+                "rsi": "RSI", "atr": "ATR", "close_10_ema": "EMA",
+                "close_50_sma": "SMA", "close_200_sma": "SMA"
+            }
+
+            target_col_name = col_name_map.get(indicator)
+
+            if not target_col_name:
+                # Default to the second column if no specific mapping exists
+                value_col_idx = 1
+            else:
+                try:
+                    value_col_idx = header.index(target_col_name)
+                except ValueError:
+                    return f"Error: Column '{target_col_name}' not found for indicator '{indicator}'. Available columns: {header}"
+
+            for line in lines[1:]:
+                if not line.strip():
+                    continue
+                values = line.split(',')
+                if len(values) > value_col_idx:
+                    try:
+                        date_str = values[date_col_idx].strip()
+                        # Parse the date
+                        date_dt = datetime.strptime(date_str, "%Y-%m-%d")
+
+                        # Check if date is in our range
+                        if before <= date_dt <= curr_date_dt:
+                            value = values[value_col_idx].strip()
+                            result_data.append((date_dt, value))
+                    except (ValueError, IndexError):
+                        continue
 
         # Sort by date and format output
         result_data.sort(key=lambda x: x[0])

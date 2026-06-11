@@ -13,10 +13,34 @@ def create_social_media_analyst(llm):
         ]
 
         system_message = (
-            "You are a social media and company specific news researcher/analyst tasked with analyzing social media posts, recent company news, and public sentiment for a specific company over the past week. You will be given a company's name your objective is to write a comprehensive long report detailing your analysis, insights, and implications for traders and investors on this company's current state after looking at social media and what people are saying about that company, analyzing sentiment data of what people feel each day about the company, and looking at recent company news. Use the get_news(query, start_date, end_date) tool to search for company-specific news and social media discussions. Try to look at all sources possible from social media to sentiment to news. Provide specific, actionable insights with supporting evidence to help traders make informed decisions."
+            "You are a social media and metal or company specific news researcher/analyst tasked with analyzing social media posts, recent company news, and public sentiment for a specific company over the past week. You will be given a company's name your objective is to write a comprehensive long report detailing your analysis, insights, and implications for traders and investors on this company's current state after looking at social media and what people are saying about that company, analyzing sentiment data of what people feel each day about the company, and looking at recent company news. Use the get_news(query, start_date, end_date) tool to search for company-specific news and social media discussions. Try to look at all sources possible from social media to sentiment to news. Provide specific, actionable insights with supporting evidence to help traders make informed decisions."
             + """ Make sure to append a Markdown table at the end of the report to organize key points in the report, organized and easy to read."""
             + get_language_instruction()
         )
+
+        is_ollama = get_config().get("llm_provider") == "ollama"
+        if is_ollama:
+            system_message += (
+                "\n\n--- LOCAL MODEL (QWEN) INSTRUCTIONS ---\n"
+                "You must perform your analysis and then IMMEDIATELY output your final report. "
+                "Do NOT output function signatures, XML tags, or code comments. "
+                "Output your analysis in clean Markdown. "
+                "At the end of your report, you MUST append a formatted Markdown table summarizing the metrics. "
+                "Here is an example of a high-quality final report structure:\n"
+                "### Social Media & Sentiment Analysis of [Metal Name] ([Ticker])\n"
+                "Provide a detailed overview of public sentiment and social trends.\n\n"
+                "### Key Observations\n"
+                "- **Public/Retail Sentiment**: Summarize what people are saying on Twitter, Reddit, and forums.\n"
+                "- **Media Mentions**: Public sentiment and media coverage tone.\n\n"
+                "### Final Transaction Proposal\n"
+                "**BUY/HOLD/SELL**: **[PROPOSAL]**\n\n"
+                "### Summary Table\n"
+                "| Platform | Sentiment Tone | Key Discussion Points |\n"
+                "|---|---|---|\n"
+                "| Social Media | [Positive/Negative/Neutral] | [Main talking points] |\n"
+                "| Industry Forums | [Positive/Negative/Neutral] | [Main talking points] |\n"
+                "| News Sentiment | [Positive/Negative/Neutral] | [Main talking points] |\n"
+            )
 
         prompt = ChatPromptTemplate.from_messages(
             [

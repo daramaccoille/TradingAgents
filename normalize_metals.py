@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from typing import Union
 
 # Mapping of all possible ticker variations to their uniform Metal name
 TICKER_TO_METAL = {
@@ -34,7 +35,7 @@ TICKER_TO_METAL = {
     "XPDUSD=X": "PALLADIUM"
 }
 
-def normalize_directories(base_path: str):
+def normalize_directories(base_path: Union[str, Path]):
     reports_dir = Path(base_path)
     if not reports_dir.exists():
         print(f"Directory {base_path} not found.")

@@ -15,33 +15,65 @@ METALS = {
     "PALLADIUM": "PA=F"
 }
 
-def get_ticker_price(ticker: str, target_date: str) -> float:
-    """Fetch the closing price of the ticker for the target date, or the latest price as fallback."""
+def get_ticker_price(ticker: str, target_date: str) -> tuple[float, str]:
+    """Fetch the closing price and the candle timestamp of the ticker for the target date using H4 timeframe."""
     try:
         ticker_obj = yf.Ticker(ticker)
-        start_dt = datetime.datetime.strptime(target_date, "%Y-%m-%d")
-        end_dt = start_dt + datetime.timedelta(days=1)
-        end_date = end_dt.strftime("%Y-%m-%d")
+        # Download 1h data to resample to H4.
+        # We need a range around the target date to ensure we get the full day's H4 candles.
+        target_dt = datetime.datetime.strptime(target_date, "%Y-%m-%d")
+        start_dt = target_dt - datetime.timedelta(days=5)
+        end_dt = target_dt + datetime.timedelta(days=2)
         
-        hist = ticker_obj.history(start=target_date, end=end_date)
-        if not hist.empty and "Close" in hist.columns:
-            return float(hist["Close"].iloc[0])
+        hist = ticker_obj.history(start=start_dt.strftime("%Y-%m-%d"), end=end_dt.strftime("%Y-%m-%d"), interval="1h")
+        if hist.empty:
+            hist = ticker_obj.history(period="7d", interval="1h")
             
-        # Fallback to period history
+        if not hist.empty:
+            # Resample to 4H
+            hist_h4 = hist.resample('4h').agg({
+                'Open': 'first',
+                'High': 'max',
+                'Low': 'min',
+                'Close': 'last',
+                'Volume': 'sum'
+            }).dropna()
+            
+            if not hist_h4.empty:
+                # Format index to YYYY-MM-DD
+                hist_h4['DateStr'] = hist_h4.index.map(lambda x: x.strftime("%Y-%m-%d"))
+                matching_candles = hist_h4[hist_h4['DateStr'] == target_date]
+                
+                if not matching_candles.empty:
+                    latest_candle = matching_candles.iloc[-1]
+                    price = float(latest_candle['Close'])
+                    timestamp = str(matching_candles.index[-1])
+                    return price, timestamp
+                else:
+                    # Fallback to the latest available H4 candle in hist_h4
+                    latest_candle = hist_h4.iloc[-1]
+                    price = float(latest_candle['Close'])
+                    timestamp = str(hist_h4.index[-1])
+                    return price, timestamp
+        
+        # Fallback to daily close if H4/1h download fails
+        hist = ticker_obj.history(start=target_date, end=(target_dt + datetime.timedelta(days=1)).strftime("%Y-%m-%d"))
+        if not hist.empty and "Close" in hist.columns:
+            return float(hist["Close"].iloc[0]), f"{target_date} 00:00:00"
+            
         hist = ticker_obj.history(period="5d")
         if not hist.empty and "Close" in hist.columns:
-            return float(hist["Close"].iloc[-1])
+            return float(hist["Close"].iloc[-1]), f"{hist.index[-1].strftime('%Y-%m-%d')} 00:00:00"
             
-        # Fallback to info
         info = ticker_obj.info
-        price = info.get("regularMarketPrice") or info.get("previousClose")
-        if price is not None:
-            return float(price)
+        price = info.get("regularMarketPrice") or info.get("previousClose") or 0.0
+        return float(price), datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     except Exception as e:
-        print(f"Error fetching price for {ticker}: {e}")
-    return 0.0
+        print(f"Error fetching H4 price for {ticker}: {e}")
+        return 0.0, datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-def main():
+
+def main(date_arg=None):
     # Setup directory
     reports_dir = Path("reports")
     reports_dir.mkdir(exist_ok=True)
@@ -60,9 +92,12 @@ def main():
         with open(times_csv_path, "w", encoding="utf-8") as f:
             f.write("Timestamp,Date,Metal,Ticker,ExecutionTimeSeconds\n")
             
-    # Default date to yesterday
-    yesterday = datetime.datetime.now() - datetime.timedelta(days=1)
-    target_date = yesterday.strftime("%Y-%m-%d")
+    if date_arg:
+        target_date = date_arg
+    else:
+        # Default date to yesterday
+        yesterday = datetime.datetime.now() - datetime.timedelta(days=1)
+        target_date = yesterday.strftime("%Y-%m-%d")
     
     # Load already completed tickers for target_date to support resumption
     completed_tickers = set()
@@ -101,11 +136,11 @@ def main():
                 print(f"[SUCCESS] Finished report for {metal}")
                 
                 # Fetch price
-                price = get_ticker_price(ticker, target_date)
+                price, candle_ts = get_ticker_price(ticker, target_date)
                 
                 # Save to prices.csv
                 with open(prices_csv_path, "a", encoding="utf-8") as f:
-                    f.write(f'"{run_timestamp}","{target_date}","{metal}","{ticker}",{price:.2f}\n')
+                    f.write(f'"{candle_ts}","{target_date}","{metal}","{ticker}",{price:.2f}\n')
                     
                 # Save to times.csv
                 with open(times_csv_path, "a", encoding="utf-8") as f:
@@ -125,4 +160,8 @@ def main():
                 f.write("-" * 60 + "\n")
 
 if __name__ == "__main__":
-    main()
+    import argparse
+    parser = argparse.ArgumentParser(description="Run daily trading reports and save prices/execution times.")
+    parser.add_argument("--date", type=str, default=None, help="Analysis date YYYY-MM-DD (default: yesterday)")
+    args = parser.parse_args()
+    main(args.date)

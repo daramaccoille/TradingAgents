@@ -25,6 +25,30 @@ def create_news_analyst(llm):
             + get_language_instruction()
         )
 
+        is_ollama = get_config().get("llm_provider") == "ollama"
+        if is_ollama:
+            system_message += (
+                "\n\n--- LOCAL MODEL (QWEN) INSTRUCTIONS ---\n"
+                "You must perform your analysis and then IMMEDIATELY output your final report. "
+                "Do NOT output function signatures, XML tags, or code comments. "
+                "Output your analysis in clean Markdown. "
+                "At the end of your report, you MUST append a formatted Markdown table summarizing the metrics. "
+                "Here is an example of a high-quality final report structure:\n"
+                "### News Analysis of [Metal Name] ([Ticker])\n"
+                "Provide a detailed overview of the news articles and geopolitical events.\n\n"
+                "### Key Developments\n"
+                "- **Macroeconomic News**: Discuss interest rates, inflation indicators, central bank decisions.\n"
+                "- **Industry Specific News**: Details on industrial supply disruptions or demand growth.\n\n"
+                "### Final Transaction Proposal\n"
+                "**BUY/HOLD/SELL**: **[PROPOSAL]**\n\n"
+                "### Summary Table\n"
+                "| Key Development | Description | Impact |\n"
+                "|---|---|---|\n"
+                "| Geopolitical Factors | [Details] | [Impact] |\n"
+                "| Central Bank Policy | [Details] | [Impact] |\n"
+                "| Industrial Activity | [Details] | [Impact] |\n"
+            )
+
         prompt = ChatPromptTemplate.from_messages(
             [
                 (

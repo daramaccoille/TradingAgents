@@ -4,6 +4,7 @@ import json
 import argparse
 from pathlib import Path
 from dotenv import load_dotenv
+from typing import Optional
 
 # Load environment variables
 load_dotenv()
@@ -13,7 +14,7 @@ API_URL = os.environ.get("INGEST_API_URL", "http://localhost:3000/api/reports/in
 API_KEY = os.environ.get("INGEST_API_KEY", "dev-secret-key")
 REPORTS_DIR = Path("reports")
 
-def push_reports(target_date: str = None):
+def push_reports(target_date: Optional[str] = None):
     if not REPORTS_DIR.exists():
         print("No reports directory found.")
         return
@@ -43,6 +44,23 @@ def push_reports(target_date: str = None):
         selected_batch_dirs = [latest_batch_dir]
         print(f"No date specified. Defaulting to latest batch directory: {latest_batch_dir.name}")
 
+    # Load prices from prices.csv mapping (date, metal) -> (price, timestamp)
+    prices_map = {}
+    prices_csv_path = REPORTS_DIR / "prices.csv"
+    if prices_csv_path.exists():
+        try:
+            import csv
+            with open(prices_csv_path, 'r', encoding='utf-8') as f:
+                reader = csv.reader(f)
+                header = next(reader, None) # Timestamp,Date,Metal,Ticker,Price
+                if header:
+                    for row in reader:
+                        if len(row) >= 5:
+                            ts, dt, met, tick, pr = row
+                            prices_map[(dt.strip(), met.strip().upper())] = (pr.strip(), ts.strip())
+        except Exception as e:
+            print(f"Error loading prices.csv: {e}")
+
     reports_payload = []
 
     for batch_dir in selected_batch_dirs:
@@ -58,6 +76,9 @@ def push_reports(target_date: str = None):
         else:
             metal = "Unknown"
             date = "Unknown"
+
+        # Look up price and priceTimestamp
+        price_val, price_ts = prices_map.get((date, metal.upper()), (None, None))
 
         # Walk through the directory and collect all markdown files
         for root, _, files in os.walk(batch_dir):
@@ -78,7 +99,9 @@ def push_reports(target_date: str = None):
                         "date": date,
                         "stage": stage,
                         "agentName": file,
-                        "contentMd": content
+                        "contentMd": content,
+                        "price": price_val,
+                        "priceTimestamp": price_ts
                     })
 
     if not reports_payload:

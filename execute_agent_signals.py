@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from mcp import ClientSession
 from mcp.client.sse import sse_client
 from rich.console import Console
+from typing import Optional
 
 # Load environment variables
 load_dotenv()
@@ -61,7 +62,7 @@ def parse_tool_result(res):
         if text.lower() == "false": return False
         return text
 
-async def execute_trade_on_mt5(session, mt5_symbol: str, signal: str, sl: float = None, tp: float = None, volume: float = 0.01):
+async def execute_trade_on_mt5(session, mt5_symbol: str, signal: str, sl: Optional[float] = None, tp: Optional[float] = None, volume: float = 0.01):
     """Handles position checking, closing opposite trades, and opening new ones."""
     console.print(f"[bold cyan]Syncing trades for {mt5_symbol} (Signal: {signal})...[/bold cyan]")
     
@@ -73,7 +74,7 @@ async def execute_trade_on_mt5(session, mt5_symbol: str, signal: str, sl: float 
     existing_buy = None
     existing_sell = None
     
-    if positions:
+    if isinstance(positions, list):
         for pos in positions:
             if pos.get("type") == 0:  # 0 is BUY
                 existing_buy = pos
@@ -110,7 +111,11 @@ async def close_position(session, position):
     close_type = 1 if pos_type == 0 else 0
     tick_res = await session.call_tool("get_symbol_info_tick", {"symbol": symbol})
     tick = parse_tool_result(tick_res)
+    if not isinstance(tick, dict):
+        raise ValueError(f"Failed to get tick info for {symbol}. Result: {tick}")
     price = tick.get("bid") if close_type == 1 else tick.get("ask")
+    if price is None:
+        raise ValueError(f"Price ('bid'/'ask') not found in tick for {symbol}: {tick}")
     
     order_req = {
         "action": 1, # TRADE_ACTION_DEAL
@@ -131,8 +136,12 @@ async def open_position(session, symbol, type_code, volume, sl, tp):
     await session.call_tool("symbol_select", {"symbol": symbol, "visible": True})
     tick_res = await session.call_tool("get_symbol_info_tick", {"symbol": symbol})
     tick = parse_tool_result(tick_res)
+    if not isinstance(tick, dict):
+        raise ValueError(f"Failed to get tick info for {symbol}. Result: {tick}")
     
     price = tick.get("ask") if type_code == 0 else tick.get("bid")
+    if price is None:
+        raise ValueError(f"Price ('ask'/'bid') not found in tick for {symbol}: {tick}")
     action_desc = "BUY" if type_code == 0 else "SELL"
     
     order_req = {
@@ -152,8 +161,10 @@ async def open_position(session, symbol, type_code, volume, sl, tp):
     try:
         res = await session.call_tool("order_send", {"request": order_req})
         result = parse_tool_result(res)
-        if result:
+        if isinstance(result, dict):
             console.print(f"[green]✓ Order executed! Ticket: #{result.get('order')}[/green]")
+        elif result:
+            console.print("[green]✓ Order executed successfully.[/green]")
     except Exception as e:
         console.print(f"[red]Error placing trade: {e}[/red]")
 

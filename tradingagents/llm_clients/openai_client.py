@@ -1,4 +1,5 @@
 import os
+import threading
 from typing import Any, Optional
 
 from langchain_core.messages import AIMessage
@@ -6,6 +7,9 @@ from langchain_openai import ChatOpenAI
 
 from .base_client import BaseLLMClient, normalize_content
 from .validators import validate_model
+
+
+_ollama_lock = threading.Lock()
 
 
 class NormalizedChatOpenAI(ChatOpenAI):
@@ -30,6 +34,14 @@ class NormalizedChatOpenAI(ChatOpenAI):
         if method is None:
             method = "function_calling"
         return super().with_structured_output(schema, method=method, **kwargs)
+
+
+class OllamaChatOpenAI(NormalizedChatOpenAI):
+    """ChatOpenAI that serializes Ollama invokes using a global lock to prevent CPU overloading."""
+
+    def invoke(self, input, config=None, **kwargs):
+        with _ollama_lock:
+            return super().invoke(input, config, **kwargs)
 
 
 def _input_to_messages(input_: Any) -> list:
@@ -171,7 +183,12 @@ class OpenAIClient(BaseLLMClient):
 
         # DeepSeek's thinking-mode quirks live in their own subclass so the
         # base NormalizedChatOpenAI stays free of provider-specific branches.
-        chat_cls = DeepSeekChatOpenAI if self.provider == "deepseek" else NormalizedChatOpenAI
+        if self.provider == "deepseek":
+            chat_cls = DeepSeekChatOpenAI
+        elif self.provider == "ollama":
+            chat_cls = OllamaChatOpenAI
+        else:
+            chat_cls = NormalizedChatOpenAI
         return chat_cls(**llm_kwargs)
 
     def validate_model(self) -> bool:

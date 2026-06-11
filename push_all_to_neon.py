@@ -11,6 +11,24 @@ API_URL = os.environ.get("INGEST_API_URL", "http://localhost:3000/api/reports/in
 API_KEY = os.environ.get("INGEST_API_KEY", "dev-secret-key")
 
 def push_all_reports():
+    # Load prices from both directories
+    prices_map = {}
+    for base in ["reports", "reports1"]:
+        prices_csv_path = Path(base) / "prices.csv"
+        if prices_csv_path.exists():
+            try:
+                import csv
+                with open(prices_csv_path, 'r', encoding='utf-8') as f:
+                    reader = csv.reader(f)
+                    header = next(reader, None)
+                    if header:
+                        for row in reader:
+                            if len(row) >= 5:
+                                ts, dt, met, tick, pr = row
+                                prices_map[(dt.strip(), met.strip().upper())] = (pr.strip(), ts.strip())
+            except Exception as e:
+                print(f"Error loading {prices_csv_path}: {e}")
+
     reports_payload = []
     
     # Check both reports and reports1 directories
@@ -37,6 +55,9 @@ def push_all_reports():
                 metal = "Unknown"
                 date = "Unknown"
 
+            # Look up price and priceTimestamp
+            price_val, price_ts = prices_map.get((date, metal.upper()), (None, None))
+
             for root, _, files in os.walk(batch_dir):
                 stage = Path(root).name
                 if stage == batch_id:
@@ -54,7 +75,9 @@ def push_all_reports():
                             "date": date,
                             "stage": stage,
                             "agentName": file,
-                            "contentMd": content
+                            "contentMd": content,
+                            "price": price_val,
+                            "priceTimestamp": price_ts
                         })
 
     if not reports_payload:

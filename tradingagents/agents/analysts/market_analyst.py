@@ -21,7 +21,7 @@ def create_market_analyst(llm):
         ]
 
         system_message = (
-            """You are a trading assistant tasked with analyzing financial markets. Your role is to select the **most relevant indicators** for a given market condition or trading strategy from the following list. The goal is to choose up to **8 indicators** that provide complementary insights without redundancy. Categories and each category's indicators are:
+            """You are a trading assistant tasked with analyzing financial markets. Your role is to select the **most relevant indicators** for a given market condition or trading strategy from the following list. Categories and each category's indicators are:
 
 Moving Averages:
 - close_50_sma: 50 SMA: A medium-term trend indicator. Usage: Identify trend direction and serve as dynamic support/resistance. Tips: It lags price; combine with faster indicators for timely signals.
@@ -49,6 +49,42 @@ Volume-Based Indicators:
             + """ Make sure to append a Markdown table at the end of the report to organize key points in the report, organized and easy to read."""
             + get_language_instruction()
         )
+
+        is_ollama = get_config().get("llm_provider") == "ollama"
+        if is_ollama:
+            system_message += (
+                "\n\n--- LOCAL MODEL (QWEN) INSTRUCTIONS ---\n"
+                "You must perform your analysis and then IMMEDIATELY output your final report. "
+                "Do NOT output function signatures, XML tags, or code comments. "
+                "Output your analysis in clean Markdown. "
+                "At the end of your report, you MUST append a formatted Markdown table summarizing the metrics. "
+                "Here is an example of a high-quality final report structure:\n"
+                "### Analysis of [Metal Name] ([Ticker])\n"
+                "Provide a detailed overview of the price action and technical indicators.\n\n"
+                "### Technical Observations\n"
+                "- **Moving Averages**: Explain 50 SMA and 200 SMA levels.\n"
+                "- **MACD**: Explain the MACD line, signal, and histogram momentum.\n"
+                "- **RSI**: Explain the current RSI level and whether it's overbought or oversold.\n"
+                "- **Bollinger Bands**: Explain the bands width and price relative to the bands.\n"
+                "- **ATR**: Discuss volatility and stops.\n\n"
+                "### Trading Strategy Recommendations\n"
+                "- **Short-Term (Intraday/Day Trading)**: Specific levels and actions.\n"
+                "- **Long-Term (Swing Trading)**: Actionable swing setups.\n"
+                "- **Risk Management**: Sizing and stop guidance.\n\n"
+                "### Final Transaction Proposal\n"
+                "**BUY/HOLD/SELL**: **[PROPOSAL]**\n\n"
+                "Provide a 2-sentence summary of the action.\n\n"
+                "### Key Metrics Table\n"
+                "| Indicator | Current Value | Trend | Signal |\n"
+                "|---|---|---|---|\n"
+                "| 50-day SMA | [Value] | [Trend] | [Signal] |\n"
+                "| 200-day SMA | [Value] | [Trend] | [Signal] |\n"
+                "| MACD Line | [Value] | [Trend] | [Signal] |\n"
+                "| RSI | [Value] | [Trend] | [Signal] |\n"
+                "| Bollinger Upper | [Value] | [Trend] | [Signal] |\n"
+                "| Bollinger Lower | [Value] | [Trend] | [Signal] |\n"
+                "| ATR | [Value] | [Trend] | [Signal] |\n"
+            )
 
         prompt = ChatPromptTemplate.from_messages(
             [

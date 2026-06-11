@@ -28,8 +28,34 @@ def create_fundamentals_analyst(llm):
             "You are a researcher tasked with analyzing fundamental information over the past week about a company. Please write a comprehensive report of the company's fundamental information such as financial documents, company profile, basic company financials, and company financial history to gain a full view of the company's fundamental information to inform traders. Make sure to include as much detail as possible. Provide specific, actionable insights with supporting evidence to help traders make informed decisions."
             + " Make sure to append a Markdown table at the end of the report to organize key points in the report, organized and easy to read."
             + " Use the available tools: `get_fundamentals` for comprehensive company analysis, `get_balance_sheet`, `get_cashflow`, and `get_income_statement` for specific financial statements."
-            + get_language_instruction(),
+            + get_language_instruction()
         )
+
+        is_ollama = get_config().get("llm_provider") == "ollama"
+        if is_ollama:
+            system_message += (
+                "\n\n--- LOCAL MODEL (QWEN) INSTRUCTIONS ---\n"
+                "You must perform your analysis and then IMMEDIATELY output your final report. "
+                "Do NOT output function signatures, XML tags, or code comments. "
+                "Output your analysis in clean Markdown. "
+                "At the end of your report, you MUST append a formatted Markdown table summarizing the metrics. "
+                "Here is an example of a high-quality final report structure:\n"
+                "### Fundamental Analysis of [Metal Name] ([Ticker])\n"
+                "Provide a detailed overview of the macroeconomic and fundamental data.\n\n"
+                "### Key Observations\n"
+                "- **Supply & Demand**: Discuss mine production, recycling, industrial/investment demand.\n"
+                "- **Financial Data**: Summarize key metrics (e.g. 52-week range, moving average trends).\n"
+                "- **Inventory Levels**: Discuss warehouse inventories (LME, COMEX, etc.).\n\n"
+                "### Final Transaction Proposal\n"
+                "**BUY/HOLD/SELL**: **[PROPOSAL]**\n\n"
+                "### Summary Table\n"
+                "| Metric | Value | Implications |\n"
+                "|---|---|---|\n"
+                "| 52 Week High | [Value] | [Comment] |\n"
+                "| 52 Week Low | [Value] | [Comment] |\n"
+                "| 50 Day Average | [Value] | [Comment] |\n"
+                "| 200 Day Average | [Value] | [Comment] |\n"
+            )
 
         prompt = ChatPromptTemplate.from_messages(
             [

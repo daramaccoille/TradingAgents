@@ -41,7 +41,7 @@ def get_YFin_data_online(
     data = yf_retry(lambda: ticker.history(start=start_date, end=end_date))
 
     # Check if data is empty
-    if data.empty:
+    if data is None or data.empty:
         return (
             f"No data found for symbol '{symbol}' between {start_date} and {end_date}"
         )
@@ -277,7 +277,7 @@ def get_stockstats_indicator(
 
 def get_fundamentals(
     ticker: Annotated[str, "ticker symbol of the company"],
-    curr_date: Annotated[str, "current date (not used for yfinance)"] = None
+    curr_date: Annotated[str | None, "current date (not used for yfinance)"] = None
 ):
     """Get company fundamentals overview from yfinance."""
     if ticker.upper() in METAL_FUTURES_TICKERS:
@@ -337,7 +337,7 @@ def get_fundamentals(
 def get_balance_sheet(
     ticker: Annotated[str, "ticker symbol of the company"],
     freq: Annotated[str, "frequency of data: 'annual' or 'quarterly'"] = "quarterly",
-    curr_date: Annotated[str, "current date in YYYY-MM-DD format"] = None
+    curr_date: Annotated[str | None, "current date in YYYY-MM-DD format"] = None
 ):
     """Get balance sheet data from yfinance."""
     if ticker.upper() in METAL_FUTURES_TICKERS:
@@ -350,10 +350,10 @@ def get_balance_sheet(
         else:
             data = yf_retry(lambda: ticker_obj.balance_sheet)
 
-        data = filter_financials_by_date(data, curr_date)
-
-        if data.empty:
+        if data is None or data.empty:
             return f"No balance sheet data found for symbol '{ticker}'"
+
+        data = filter_financials_by_date(data, curr_date)
             
         # Convert to CSV string for consistency with other functions
         csv_string = data.to_csv()
@@ -371,7 +371,7 @@ def get_balance_sheet(
 def get_cashflow(
     ticker: Annotated[str, "ticker symbol of the company"],
     freq: Annotated[str, "frequency of data: 'annual' or 'quarterly'"] = "quarterly",
-    curr_date: Annotated[str, "current date in YYYY-MM-DD format"] = None
+    curr_date: Annotated[str | None, "current date in YYYY-MM-DD format"] = None
 ):
     """Get cash flow data from yfinance."""
     if ticker.upper() in METAL_FUTURES_TICKERS:
@@ -384,10 +384,10 @@ def get_cashflow(
         else:
             data = yf_retry(lambda: ticker_obj.cashflow)
 
-        data = filter_financials_by_date(data, curr_date)
-
-        if data.empty:
+        if data is None or data.empty:
             return f"No cash flow data found for symbol '{ticker}'"
+
+        data = filter_financials_by_date(data, curr_date)
             
         # Convert to CSV string for consistency with other functions
         csv_string = data.to_csv()
@@ -405,7 +405,7 @@ def get_cashflow(
 def get_income_statement(
     ticker: Annotated[str, "ticker symbol of the company"],
     freq: Annotated[str, "frequency of data: 'annual' or 'quarterly'"] = "quarterly",
-    curr_date: Annotated[str, "current date in YYYY-MM-DD format"] = None
+    curr_date: Annotated[str | None, "current date in YYYY-MM-DD format"] = None
 ):
     """Get income statement data from yfinance."""
     if ticker.upper() in METAL_FUTURES_TICKERS:
@@ -418,10 +418,10 @@ def get_income_statement(
         else:
             data = yf_retry(lambda: ticker_obj.income_stmt)
 
-        data = filter_financials_by_date(data, curr_date)
-
-        if data.empty:
+        if data is None or data.empty:
             return f"No income statement data found for symbol '{ticker}'"
+
+        data = filter_financials_by_date(data, curr_date)
             
         # Convert to CSV string for consistency with other functions
         csv_string = data.to_csv()

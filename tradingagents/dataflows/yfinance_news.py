@@ -168,7 +168,7 @@ def get_global_news_yfinance(
                 enable_fuzzy_query=True,
             ))
 
-            if search.news:
+            if search and search.news:
                 for article in search.news:
                     # Handle both flat and nested structures
                     if "content" in article:

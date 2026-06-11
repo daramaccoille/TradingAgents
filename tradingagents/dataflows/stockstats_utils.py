@@ -82,8 +82,11 @@ def load_ohlcv(symbol: str, curr_date: str) -> pd.DataFrame:
             progress=False,
             auto_adjust=True,
         ))
-        data = data.reset_index()
-        data.to_csv(data_file, index=False, encoding="utf-8")
+        if data is None or data.empty:
+            data = pd.DataFrame(columns=["Date", "Open", "High", "Low", "Close", "Volume"])
+        else:
+            data = data.reset_index()
+            data.to_csv(data_file, index=False, encoding="utf-8")
 
     data = _clean_dataframe(data)
 
@@ -93,7 +96,7 @@ def load_ohlcv(symbol: str, curr_date: str) -> pd.DataFrame:
     return data
 
 
-def filter_financials_by_date(data: pd.DataFrame, curr_date: str) -> pd.DataFrame:
+def filter_financials_by_date(data: pd.DataFrame, curr_date: str | None) -> pd.DataFrame:
     """Drop financial statement columns (fiscal period timestamps) after curr_date.
 
     yfinance financial statements use fiscal period end dates as columns.

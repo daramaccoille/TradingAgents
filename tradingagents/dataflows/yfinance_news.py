@@ -6,6 +6,17 @@ from dateutil.relativedelta import relativedelta
 
 from .stockstats_utils import yf_retry
 
+# Map opaque futures ticker symbols to human-readable commodity search terms.
+# yfinance cannot fetch news by futures symbol (e.g. GC=F returns nothing);
+# we search by commodity name instead to get relevant macro/commodity news.
+METAL_FUTURES_NEWS_TERMS = {
+    "GC=F": "gold commodity price",
+    "SI=F": "silver commodity price",
+    "HG=F": "copper commodity price",
+    "PL=F": "platinum commodity price",
+    "PA=F": "palladium commodity price",
+}
+
 
 def _extract_article_data(article: dict) -> dict:
     """Extract article data from yfinance news format (handles nested 'content' structure)."""
@@ -55,9 +66,11 @@ def get_news_yfinance(
 ) -> str:
     """
     Retrieve news for a specific stock ticker using yfinance.
+    For commodity futures tickers (e.g. GC=F, SI=F), falls back to a
+    keyword search so agents receive relevant commodity/macro news.
 
     Args:
-        ticker: Stock ticker symbol (e.g., "AAPL")
+        ticker: Stock ticker symbol (e.g., "AAPL") or futures symbol (e.g., "GC=F")
         start_date: Start date in yyyy-mm-dd format
         end_date: End date in yyyy-mm-dd format
 
@@ -65,12 +78,28 @@ def get_news_yfinance(
         Formatted string containing news articles
     """
     try:
+        # Determine effective search term for futures tickers
+        search_term = METAL_FUTURES_NEWS_TERMS.get(ticker.upper())
+
         stock = yf.Ticker(ticker)
         news = yf_retry(lambda: stock.get_news(count=20))
 
-        if not news:
-            return f"No news found for {ticker}"
+        # For futures tickers with no direct news, fall back to keyword search
+        if (not news) and search_term:
+            try:
+                search = yf_retry(lambda: yf.Search(
+                    query=search_term,
+                    news_count=20,
+                    enable_fuzzy_query=True,
+                ))
+                news = search.news if search and search.news else []
+            except Exception:
+                news = []
 
+        if not news:
+            return f"No news found for {ticker} (searched as: {search_term or ticker})"
+
+        effective_label = search_term or ticker
         # Parse date range for filtering
         start_dt = datetime.strptime(start_date, "%Y-%m-%d")
         end_dt = datetime.strptime(end_date, "%Y-%m-%d")
@@ -98,7 +127,7 @@ def get_news_yfinance(
         if filtered_count == 0:
             return f"No news found for {ticker} between {start_date} and {end_date}"
 
-        return f"## {ticker} News, from {start_date} to {end_date}:\n\n{news_str}"
+        return f"## {effective_label} News, from {start_date} to {end_date}:\n\n{news_str}"
 
     except Exception as e:
         return f"Error fetching news for {ticker}: {str(e)}"

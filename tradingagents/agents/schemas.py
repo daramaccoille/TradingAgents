@@ -18,10 +18,13 @@ so that:
 
 from __future__ import annotations
 
+import logging
 from enum import Enum
 from typing import Optional
 
 from pydantic import BaseModel, Field
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -130,11 +133,21 @@ class TraderProposal(BaseModel):
     )
     stop_loss: Optional[float] = Field(
         default=None,
-        description="Optional stop-loss price in the instrument's quote currency.",
+        description=(
+            "Stop-loss price in the instrument's quote currency. "
+            "Direction rule: for a BUY action, stop_loss MUST be BELOW entry_price (protect against downside). "
+            "For a SELL action, stop_loss MUST be ABOVE entry_price (protect against upside). "
+            "Example BUY: entry=1700, stop_loss=1680. Example SELL: entry=1700, stop_loss=1720."
+        ),
     )
     take_profit: Optional[float] = Field(
         default=None,
-        description="Optional take-profit price in the instrument's quote currency.",
+        description=(
+            "Take-profit price in the instrument's quote currency. "
+            "Direction rule: for a BUY action, take_profit MUST be ABOVE entry_price (capture upside). "
+            "For a SELL action, take_profit MUST be BELOW entry_price (capture downside). "
+            "Example BUY: entry=1700, take_profit=1740. Example SELL: entry=1700, take_profit=1660."
+        ),
     )
     risk_reward_ratio: Optional[str] = Field(
         default=None,
@@ -149,10 +162,48 @@ class TraderProposal(BaseModel):
 def render_trader_proposal(proposal: TraderProposal) -> str:
     """Render a TraderProposal to markdown.
 
+    Validates and corrects the SL/TP direction before rendering:
+    - BUY:  stop_loss < entry_price < take_profit
+    - SELL: take_profit < entry_price < stop_loss
+
     The trailing ``FINAL TRANSACTION PROPOSAL: **BUY/HOLD/SELL**`` line is
     preserved for backward compatibility with the analyst stop-signal text
     and any external code that greps for it.
     """
+    # Direction validation and correction
+    if (
+        proposal.action in (TraderAction.BUY, TraderAction.SELL)
+        and proposal.entry_price is not None
+        and proposal.stop_loss is not None
+        and proposal.take_profit is not None
+    ):
+        entry = proposal.entry_price
+        sl = proposal.stop_loss
+        tp = proposal.take_profit
+        if proposal.action == TraderAction.BUY:
+            # BUY: sl < entry < tp
+            if sl > entry or tp < entry:
+                logger.warning(
+                    "[TraderProposal] BUY signal has inverted SL/TP — "
+                    "correcting: entry=%.2f sl=%.2f tp=%.2f",
+                    entry, sl, tp,
+                )
+                # Swap if they look reversed
+                if sl > tp:
+                    sl, tp = tp, sl
+                proposal.stop_loss = min(sl, entry - abs(entry - sl))
+                proposal.take_profit = max(tp, entry + abs(tp - entry))
+        elif proposal.action == TraderAction.SELL:
+            # SELL: tp < entry < sl
+            if sl < entry or tp > entry:
+                logger.warning(
+                    "[TraderProposal] SELL signal has inverted SL/TP — "
+                    "correcting: entry=%.2f sl=%.2f tp=%.2f",
+                    entry, sl, tp,
+                )
+                # Swap SL and TP (model gave BUY-style levels for a SELL)
+                proposal.stop_loss, proposal.take_profit = tp, sl
+
     parts = [
         f"**Action**: {proposal.action.value}",
         "",
@@ -222,11 +273,21 @@ class PortfolioDecision(BaseModel):
     )
     stop_loss: Optional[float] = Field(
         default=None,
-        description="Optional stop-loss price in the instrument's quote currency.",
+        description=(
+            "Stop-loss price in the instrument's quote currency. "
+            "Direction rule: for a BUY/Overweight rating, stop_loss MUST be BELOW entry_price. "
+            "For a SELL/Underweight rating, stop_loss MUST be ABOVE entry_price. "
+            "Example BUY: entry=1700, stop_loss=1680. Example SELL: entry=1700, stop_loss=1720."
+        ),
     )
     take_profit: Optional[float] = Field(
         default=None,
-        description="Optional take-profit price in the instrument's quote currency.",
+        description=(
+            "Take-profit price in the instrument's quote currency. "
+            "Direction rule: for a BUY/Overweight rating, take_profit MUST be ABOVE entry_price. "
+            "For a SELL/Underweight rating, take_profit MUST be BELOW entry_price. "
+            "Example BUY: entry=1700, take_profit=1740. Example SELL: entry=1700, take_profit=1660."
+        ),
     )
     risk_reward_ratio: Optional[str] = Field(
         default=None,
@@ -237,11 +298,48 @@ class PortfolioDecision(BaseModel):
 def render_pm_decision(decision: PortfolioDecision) -> str:
     """Render a PortfolioDecision back to the markdown shape the rest of the system expects.
 
+    Validates and corrects the SL/TP direction before rendering:
+    - BUY / Overweight: stop_loss < entry_price < take_profit
+    - SELL / Underweight: take_profit < entry_price < stop_loss
+
     Memory log, CLI display, and saved report files all read this markdown,
     so the rendered output preserves the exact section headers (``**Rating**``,
     ``**Executive Summary**``, ``**Investment Thesis**``) that downstream
     parsers and the report writers already handle.
     """
+    # Direction validation and correction
+    long_ratings = (PortfolioRating.BUY, PortfolioRating.OVERWEIGHT)
+    short_ratings = (PortfolioRating.SELL, PortfolioRating.UNDERWEIGHT)
+    if (
+        decision.rating in long_ratings or decision.rating in short_ratings
+    ) and (
+        decision.entry_price is not None
+        and decision.stop_loss is not None
+        and decision.take_profit is not None
+    ):
+        entry = decision.entry_price
+        sl = decision.stop_loss
+        tp = decision.take_profit
+        if decision.rating in long_ratings:
+            if sl > entry or tp < entry:
+                logger.warning(
+                    "[PortfolioDecision] %s signal has inverted SL/TP — "
+                    "correcting: entry=%.2f sl=%.2f tp=%.2f",
+                    decision.rating.value, entry, sl, tp,
+                )
+                if sl > tp:
+                    sl, tp = tp, sl
+                decision.stop_loss = min(sl, entry - abs(entry - sl))
+                decision.take_profit = max(tp, entry + abs(tp - entry))
+        elif decision.rating in short_ratings:
+            if sl < entry or tp > entry:
+                logger.warning(
+                    "[PortfolioDecision] %s signal has inverted SL/TP — "
+                    "correcting: entry=%.2f sl=%.2f tp=%.2f",
+                    decision.rating.value, entry, sl, tp,
+                )
+                decision.stop_loss, decision.take_profit = tp, sl
+
     parts = [
         f"**Rating**: {decision.rating.value}",
         "",

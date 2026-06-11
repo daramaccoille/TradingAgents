@@ -6,6 +6,25 @@ import yfinance as yf
 import os
 from .stockstats_utils import StockstatsUtils, _clean_dataframe, yf_retry, load_ohlcv, filter_financials_by_date
 
+# Commodity futures tickers that do not have company fundamentals.
+# Fundamental data tools short-circuit for these to avoid wasted API calls
+# and hallucinated equity metrics being injected into the agent context.
+METAL_FUTURES_TICKERS = {
+    "GC=F",   # Gold
+    "SI=F",   # Silver
+    "HG=F",   # Copper
+    "PL=F",   # Platinum
+    "PA=F",   # Palladium
+    "GC", "SI", "HG", "PL", "PA",  # Without =F suffix (just in case)
+}
+
+_FUTURES_FUNDAMENTALS_MSG = (
+    "This ticker is a commodity futures contract. Company fundamentals "
+    "(balance sheet, cashflow, income statement, insider transactions) "
+    "are not applicable to commodity futures. Use price data and technical "
+    "indicators for analysis instead."
+)
+
 def get_YFin_data_online(
     symbol: Annotated[str, "ticker symbol of the company"],
     start_date: Annotated[str, "Start date in yyyy-mm-dd format"],
@@ -37,12 +56,23 @@ def get_YFin_data_online(
         if col in data.columns:
             data[col] = data[col].round(2)
 
+    # Truncate the data returned to the LLM to prevent context bloat on limited hardware,
+    # keeping the most recent 120 trading days (approx 6 months).
+    max_rows = 120
+    original_len = len(data)
+    if original_len > max_rows:
+        data_to_serialize = data.tail(max_rows)
+        header_note = f"# showing last {max_rows} records out of {original_len} total"
+    else:
+        data_to_serialize = data
+        header_note = f"# showing all {original_len} records"
+
     # Convert DataFrame to CSV string
-    csv_string = data.to_csv()
+    csv_string = data_to_serialize.to_csv()
 
     # Add header information
-    header = f"# Stock data for {symbol.upper()} from {start_date} to {end_date}\n"
-    header += f"# Total records: {len(data)}\n"
+    header = f"# Stock data for {symbol.upper()} from {start_date} to {end_date} ({header_note})\n"
+    header += f"# Total records: {original_len}\n"
     header += f"# Data retrieved on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
 
     return header + csv_string
@@ -250,6 +280,8 @@ def get_fundamentals(
     curr_date: Annotated[str, "current date (not used for yfinance)"] = None
 ):
     """Get company fundamentals overview from yfinance."""
+    if ticker.upper() in METAL_FUTURES_TICKERS:
+        return _FUTURES_FUNDAMENTALS_MSG
     try:
         ticker_obj = yf.Ticker(ticker.upper())
         info = yf_retry(lambda: ticker_obj.info)
@@ -308,6 +340,8 @@ def get_balance_sheet(
     curr_date: Annotated[str, "current date in YYYY-MM-DD format"] = None
 ):
     """Get balance sheet data from yfinance."""
+    if ticker.upper() in METAL_FUTURES_TICKERS:
+        return _FUTURES_FUNDAMENTALS_MSG
     try:
         ticker_obj = yf.Ticker(ticker.upper())
 
@@ -340,6 +374,8 @@ def get_cashflow(
     curr_date: Annotated[str, "current date in YYYY-MM-DD format"] = None
 ):
     """Get cash flow data from yfinance."""
+    if ticker.upper() in METAL_FUTURES_TICKERS:
+        return _FUTURES_FUNDAMENTALS_MSG
     try:
         ticker_obj = yf.Ticker(ticker.upper())
 
@@ -372,6 +408,8 @@ def get_income_statement(
     curr_date: Annotated[str, "current date in YYYY-MM-DD format"] = None
 ):
     """Get income statement data from yfinance."""
+    if ticker.upper() in METAL_FUTURES_TICKERS:
+        return _FUTURES_FUNDAMENTALS_MSG
     try:
         ticker_obj = yf.Ticker(ticker.upper())
 
@@ -402,6 +440,8 @@ def get_insider_transactions(
     ticker: Annotated[str, "ticker symbol of the company"]
 ):
     """Get insider transactions data from yfinance."""
+    if ticker.upper() in METAL_FUTURES_TICKERS:
+        return _FUTURES_FUNDAMENTALS_MSG
     try:
         ticker_obj = yf.Ticker(ticker.upper())
         data = yf_retry(lambda: ticker_obj.insider_transactions)

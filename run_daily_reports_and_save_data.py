@@ -2,9 +2,21 @@ import os
 import datetime
 import time
 import traceback
+import logging
 import yfinance as yf
 from pathlib import Path
 from run_metal_analysis import run_analysis_for_ticker
+
+# Configure structured logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    handlers=[
+        logging.StreamHandler(),
+    ],
+)
+logger = logging.getLogger("daily_pipeline")
 
 # Metal configuration
 METALS = {
@@ -14,6 +26,39 @@ METALS = {
     "PLATINUM": "PL=F",
     "PALLADIUM": "PA=F"
 }
+
+# Static list of US/CME holidays where commodity futures do not trade.
+# Add new years as needed. Dates in YYYY-MM-DD format.
+_CME_HOLIDAYS = {
+    # 2024
+    "2024-01-01", "2024-01-15", "2024-02-19", "2024-03-29",
+    "2024-05-27", "2024-06-19", "2024-07-04", "2024-09-02",
+    "2024-11-28", "2024-12-25",
+    # 2025
+    "2025-01-01", "2025-01-20", "2025-02-17", "2025-04-18",
+    "2025-05-26", "2025-06-19", "2025-07-04", "2025-09-01",
+    "2025-11-27", "2025-12-25",
+    # 2026
+    "2026-01-01", "2026-01-19", "2026-02-16", "2026-04-03",
+    "2026-05-25", "2026-06-19", "2026-07-03", "2026-09-07",
+    "2026-11-26", "2026-12-25",
+}
+
+
+def get_last_trading_day(from_date: datetime.date) -> datetime.date:
+    """Return the most recent trading day on or before from_date.
+
+    Skips weekends (Saturday=5, Sunday=6) and CME commodity holidays.
+    Walks backward at most 10 days to handle extended holiday periods.
+    """
+    candidate = from_date
+    for _ in range(10):
+        if candidate.weekday() < 5 and candidate.strftime("%Y-%m-%d") not in _CME_HOLIDAYS:
+            return candidate
+        candidate -= datetime.timedelta(days=1)
+    # Fallback: return the original date (shouldn't happen in practice)
+    return from_date
+
 
 def get_ticker_price(ticker: str, target_date: str) -> tuple[float, str]:
     """Fetch the closing price and the candle timestamp of the ticker for the target date using H4 timeframe."""
@@ -95,9 +140,11 @@ def main(date_arg=None):
     if date_arg:
         target_date = date_arg
     else:
-        # Default date to yesterday
-        yesterday = datetime.datetime.now() - datetime.timedelta(days=1)
-        target_date = yesterday.strftime("%Y-%m-%d")
+        # Default to the last valid trading day (handles weekends and CME holidays)
+        yesterday = (datetime.datetime.now() - datetime.timedelta(days=1)).date()
+        last_trading = get_last_trading_day(yesterday)
+        target_date = last_trading.strftime("%Y-%m-%d")
+        logger.info("Resolved default target date to last trading day: %s", target_date)
     
     # Load already completed tickers for target_date to support resumption
     completed_tickers = set()

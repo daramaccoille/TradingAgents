@@ -31,9 +31,16 @@ def create_trader(llm):
                     "Anchor your reasoning in the analysts' reports and the research plan.\n\n"
                     "If the action is 'Buy' or 'Sell', you MUST calculate and provide concrete day trading levels:\n"
                     "1. Entry Price: A precise level or entry boundary based on current support/resistance or moving average levels.\n"
-                    "2. Stop Loss (SL): A logical protection level (e.g., using 1.5 * ATR or a recent swing low/high to manage downside risk).\n"
-                    "3. Take Profit (TP): A logical target price based on key chart resistance/support or recent price targets.\n"
+                    "2. Stop Loss (SL): CRITICAL DIRECTION RULE:\n"
+                    "   - For BUY: stop_loss MUST be BELOW entry_price (e.g. entry=1700, stop_loss=1680)\n"
+                    "   - For SELL: stop_loss MUST be ABOVE entry_price (e.g. entry=1700, stop_loss=1720)\n"
+                    "   Set using 1.5x ATR from entry, placed beyond the nearest swing high (SELL) or swing low (BUY).\n"
+                    "3. Take Profit (TP): CRITICAL DIRECTION RULE:\n"
+                    "   - For BUY: take_profit MUST be ABOVE entry_price (e.g. entry=1700, take_profit=1740)\n"
+                    "   - For SELL: take_profit MUST be BELOW entry_price (e.g. entry=1700, take_profit=1660)\n"
+                    "   Set at key chart resistance (BUY) or support (SELL) levels.\n"
                     "4. Risk Reward Ratio: The calculated ratio of risk to potential reward (e.g., '1:2.0' or '1:1.5'). Ensure the reward justifies the risk (prefer R:R of at least 1:1.5).\n"
+                    "IMPORTANT: Never set stop_loss and take_profit on the same side of entry_price. Double-check the direction before submitting.\n"
                     "If the action is 'Hold', you may leave these fields null or set the entry price as the current market price for reference."
                 ),
             },

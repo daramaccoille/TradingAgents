@@ -166,7 +166,7 @@ class TradingAgentsGraph:
                 try:
                     client = create_llm_client(
                         provider="xai",
-                        model="grok-beta",
+                        model="grok-3-fast",
                     )
                     quick_fallbacks.append(client.get_llm())
                 except Exception as err:
@@ -176,7 +176,7 @@ class TradingAgentsGraph:
             try:
                 client = create_llm_client(
                     provider="ollama",
-                    model="qwen2.5",
+                    model="qwen2.5:3b",
                 )
                 quick_fallbacks.append(client.get_llm())
             except Exception as err:
@@ -250,7 +250,7 @@ class TradingAgentsGraph:
                 try:
                     client = create_llm_client(
                         provider="xai",
-                        model="grok-beta",
+                        model="grok-3-fast",
                     )
                     deep_fallbacks.append(client.get_llm())
                 except Exception as err:
@@ -260,7 +260,7 @@ class TradingAgentsGraph:
             try:
                 client = create_llm_client(
                     provider="ollama",
-                    model="qwen2.5",
+                    model="qwen2.5:3b",
                 )
                 deep_fallbacks.append(client.get_llm())
             except Exception as err:

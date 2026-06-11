@@ -11,11 +11,13 @@ load_dotenv()
 
 def run_analysis_for_ticker(ticker: str, target_date: Optional[str] = None):
     """Run multi-agent trading analysis for a specific ticker and save results to disk."""
-    # Setup config to use Google LLM (since GOOGLE_API_KEY is configured in .env)
+    # Use Google Gemini as primary (free credits via GOOGLE_API_KEY in .env).
+    # The fallback chain in TradingAgentsGraph automatically cascades through:
+    #   gemini-2.5-flash-lite -> gemini-2.5-flash -> xAI -> DeepSeek -> Qwen -> Ollama qwen2.5:3b
     config = DEFAULT_CONFIG.copy()
-    config["llm_provider"] = "ollama"
-    config["deep_think_llm"] = "qwen2.5:latest"   # Use local 7B model
-    config["quick_think_llm"] = "qwen2.5:latest"
+    config["llm_provider"] = "google"
+    config["deep_think_llm"] = "gemini-2.5-flash"       # Free tier, strong reasoning
+    config["quick_think_llm"] = "gemini-2.5-flash-lite"  # Free tier, fast
     config["max_debate_rounds"] = 1
     config["max_risk_discuss_rounds"] = 1
 
@@ -29,7 +31,7 @@ def run_analysis_for_ticker(ticker: str, target_date: Optional[str] = None):
     print("="*60)
 
     # Initialize graph
-    ta = TradingAgentsGraph(debug=True, config=config)
+    ta = TradingAgentsGraph(debug=False, config=config)
 
     try:
         state, decision = ta.propagate(ticker, target_date)
